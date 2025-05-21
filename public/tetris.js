@@ -72,7 +72,7 @@ let gameState = {
     isRunning: false,
     isWaiting: true,
     board: createEmptyBoard(),
-    nextPiece: null,
+    nextPiecesQueue: [], // Changed nextPiece to nextPiecesQueue and initialized as an empty array
     currentPiece: {
         matrix: null,
         x: 0,
@@ -411,8 +411,8 @@ function createMyBoard() {
     const nextCanvas = document.createElement('canvas');
     nextCanvas.className = 'next-piece';
     nextCanvas.id = `next-${gameState.myPlayerId}`;
-    nextCanvas.width = 4 * PREVIEW_BLOCK_SIZE; // Ahora 4 * 15 = 60px
-    nextCanvas.height = 4 * PREVIEW_BLOCK_SIZE; // Ahora 4 * 15 = 60px
+    nextCanvas.width = 4 * PREVIEW_BLOCK_SIZE; 
+    nextCanvas.height = 12 * PREVIEW_BLOCK_SIZE; // Adjusted height for three pieces (4 blocks high each * 3)
 
     // Overlay de fin de juego
     const gameOverOverlay = document.createElement('div');
@@ -438,8 +438,10 @@ function createMyBoard() {
         gameState.currentPiece.y = 0;
     }
 
-    if (!gameState.nextPiece) {
-        gameState.nextPiece = getRandomPiece();
+    if (gameState.nextPiecesQueue.length === 0) { // Populate queue if empty
+        gameState.nextPiecesQueue.push(getRandomPiece());
+        gameState.nextPiecesQueue.push(getRandomPiece());
+        gameState.nextPiecesQueue.push(getRandomPiece());
     }
 
     // Renderizar tablero y próxima pieza
@@ -540,29 +542,31 @@ function renderNextPiece() {
     // Limpiar el canvas completo primero
     gameState.nextContext.clearRect(0, 0,
         4 * PREVIEW_BLOCK_SIZE,
-        4 * PREVIEW_BLOCK_SIZE);
+        12 * PREVIEW_BLOCK_SIZE); // Adjusted height for three pieces
 
-    if (gameState.nextPiece) {
-        // Calcular centro exacto para la pieza
-        const pieceWidth = gameState.nextPiece[0].length;
-        const pieceHeight = gameState.nextPiece.length;
+    // Display up to 3 pieces from the queue
+    for (let i = 0; i < gameState.nextPiecesQueue.length && i < 3; i++) {
+        const pieceToRender = gameState.nextPiecesQueue[i];
+        if (pieceToRender) {
+            const pieceWidth = pieceToRender[0].length;
+            const pieceHeight = pieceToRender.length;
 
-        // Calcular offset para centrado perfecto
-        const offsetX = Math.floor((4 - pieceWidth) / 2);
-        const offsetY = Math.floor((4 - pieceHeight) / 2);
+            // Calcular offset para centrado perfecto for each piece
+            const offsetX = Math.floor((4 - pieceWidth) / 2);
+            // Adjust offsetY to stack pieces vertically, allocating 4 blocks of height for each piece preview
+            const offsetY = i * 4 + Math.floor((4 - pieceHeight) / 2);
 
-        // Recorrer la matriz de la pieza y dibujar cada bloque individualmente
-        for (let y = 0; y < pieceHeight; y++) {
-            for (let x = 0; x < pieceWidth; x++) {
-                if (gameState.nextPiece[y][x] !== 0) {
-                    // Dibujar el bloque con el tamaño exacto
-                    drawBlock(
-                        gameState.nextContext,
-                        x + offsetX,
-                        y + offsetY,
-                        COLORS[gameState.nextPiece[y][x]],
-                        PREVIEW_BLOCK_SIZE
-                    );
+            for (let y = 0; y < pieceHeight; y++) {
+                for (let x = 0; x < pieceWidth; x++) {
+                    if (pieceToRender[y][x] !== 0) {
+                        drawBlock(
+                            gameState.nextContext,
+                            x + offsetX,
+                            y + offsetY,
+                            COLORS[pieceToRender[y][x]],
+                            PREVIEW_BLOCK_SIZE
+                        );
+                    }
                 }
             }
         }
@@ -700,10 +704,10 @@ function mergePiece() {
     sendBoardUpdate();
 
     // Preparar nueva pieza
-    gameState.currentPiece.matrix = gameState.nextPiece;
+    gameState.currentPiece.matrix = gameState.nextPiecesQueue.shift(); // Take the first piece from the queue
     gameState.currentPiece.x = Math.floor(BOARD_WIDTH / 2) - Math.floor(gameState.currentPiece.matrix[0].length / 2);
     gameState.currentPiece.y = 0;
-    gameState.nextPiece = getRandomPiece();
+    gameState.nextPiecesQueue.push(getRandomPiece()); // Add a new piece to the end of the queue
 
     // Comprobar si la nueva pieza colisiona inmediatamente (game over)
     if (checkCollision(gameState.currentPiece.matrix, gameState.currentPiece.x, gameState.currentPiece.y)) {
@@ -912,7 +916,8 @@ function resetGame() {
         y: 0
     };
 
-    gameState.nextPiece = getRandomPiece();
+    // Populate nextPiecesQueue with 3 new pieces
+    gameState.nextPiecesQueue = [getRandomPiece(), getRandomPiece(), getRandomPiece()];
 
     // Forzar renderizado inicial
     renderBoard();
